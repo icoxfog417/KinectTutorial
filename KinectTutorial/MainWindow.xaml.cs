@@ -6,22 +6,34 @@
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
+    using KinectUtil.Image;
+    using System;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
 
         private KinectSensor sensor = null;
-        private KinectUtil.Data.Infrared infraredStream = null;
+        private FrameType defaultType = FrameType.Infrared;
+        private ImageSensor imageSensor = null;
 
-        private WriteableBitmap infraredSource = null;
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private WriteableBitmap imageSource = null;
         public ImageSource ImageSource
         {
-            get
+            get {
+                return this.imageSource;
+            }
+            set
             {
-                return this.infraredSource;
+                if(this.imageSource != value)
+                {
+                    this.imageSource = (WriteableBitmap)value;
+                    this.OnPropertyChanged("ImageSource");
+                }
             }
 
         }
@@ -29,9 +41,8 @@
         public MainWindow()
         {
             this.sensor = KinectSensor.GetDefault();
-            infraredStream = new KinectUtil.Data.Infrared(this.sensor, this.RenderInfraredPixels);
-
-            this.infraredSource = new WriteableBitmap(infraredStream.Width, infraredStream.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
+            imageSensor = new ImageSensor(this.sensor, this.RenderImage, this.defaultType);
+            this.Switch(this.defaultType);
 
             // bind with windows
             this.DataContext = this;
@@ -40,31 +51,66 @@
             InitializeComponent();
         }
 
-        public void RenderInfraredPixels(int stride, byte[] infraredPixels)
+        public void RenderImage(int stride, byte[] infraredPixels)
         {
-            this.infraredSource.Lock();
+            this.imageSource.Lock();
 
-            Int32Rect area = new Int32Rect(0, 0, this.infraredSource.PixelWidth, this.infraredSource.PixelHeight);
-            this.infraredSource.WritePixels(area, infraredPixels, stride, 0);
+            Int32Rect area = new Int32Rect(0, 0, this.imageSource.PixelWidth, this.imageSource.PixelHeight);
+            this.imageSource.WritePixels(area, infraredPixels, stride, 0);
 
-            this.infraredSource.Unlock();
+            this.imageSource.Unlock();
 
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            this.infraredStream.Bind();
+            this.imageSensor.BindHandler();
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
-            this.infraredStream.Dispose();
+            this.imageSensor.Dispose();
             if (this.sensor != null)
             {
                 this.sensor.Close();
                 this.sensor = null;
             }
         }
+
+        private void OnPropertyChanged(string name)
+        {
+            if(this.PropertyChanged != null)
+            {
+                this.PropertyChanged(this, new PropertyChangedEventArgs(name));
+            }
+        }
+
+        private void InfraredButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.Infrared);
+        }
+        private void ColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.Color);
+        }
+
+        private void Switch(FrameType frameType)
+        {
+            switch(frameType)
+            {
+                case FrameType.Infrared:
+                    this.imageSensor.Switch(this.sensor, FrameType.Infrared);
+                    break;
+                case FrameType.Color:
+                    this.imageSensor.Switch(this.sensor, FrameType.Color);
+                    break;
+                default:
+                    break;
+            }
+            ImageSource = new WriteableBitmap(imageSensor.Width, imageSensor.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
+
+        }
+
 
     }
 }
