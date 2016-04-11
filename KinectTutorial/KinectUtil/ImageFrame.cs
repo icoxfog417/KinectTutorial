@@ -7,7 +7,8 @@
     public enum FrameType
     {
         Infrared,
-        Color
+        Color,
+        Depth
     }
 
 
@@ -61,12 +62,14 @@
         public delegate void PixelsHandler(int stride, byte[] pixels);
         private PixelsHandler pixelsHandler = null;
 
+        private delegate void SetFrame<T>(T frame);
+
         public ImageSensor(KinectSensor sensor, PixelsHandler pixelsHandler, FrameType frameType = FrameType.Infrared)
         {
 
             this.Switch(sensor, frameType);
             this.pixelsHandler = pixelsHandler;
-            this.frameReader = sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color|FrameSourceTypes.Infrared);
+            this.frameReader = sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color|FrameSourceTypes.Infrared|FrameSourceTypes.Depth);
             this.BindHandler();
         }
 
@@ -80,6 +83,9 @@
                     break;
                 case FrameType.Color:
                     this.frameDescription = sensor.ColorFrameSource.FrameDescription;
+                    break;
+                case FrameType.Depth:
+                    this.frameDescription = sensor.DepthFrameSource.FrameDescription;
                     break;
                 default:
                     break;
@@ -119,13 +125,19 @@
                     case FrameType.Infrared:
                         using (InfraredFrame frame = multiFrame.InfraredFrameReference.AcquireFrame())
                         {
-                            this.SetInfraredFrame(frame);
+                            this.ValidateFrameWrap<InfraredFrame>(frame, this.SetInfraredFrame);
                         }
                         break;
                     case FrameType.Color:
                         using (ColorFrame frame = multiFrame.ColorFrameReference.AcquireFrame())
                         {
-                            this.SetColorFrame(frame);
+                            this.ValidateFrameWrap<ColorFrame>(frame, this.SetColorFrame);
+                        }
+                        break;
+                    case FrameType.Depth:
+                        using (DepthFrame frame = multiFrame.DepthFrameReference.AcquireFrame())
+                        {
+                            this.ValidateFrameWrap<DepthFrame>(frame, this.SetDepthFrame);
                         }
                         break;
                     default:
@@ -134,25 +146,26 @@
             }
 
         }
+        
+        private void ValidateFrameWrap<T>(dynamic frame, SetFrame<T> setFrameFunc)
+        {
+            if (frame == null)
+            {
+                return;
+            }
+            else
+            {
+                FrameDescription fd = frame.FrameDescription;
+                if (fd.Width == this.Width || fd.Height == this.Height)
+                {
+                    setFrameFunc(frame);
+                }
+            }            
+        }
 
 
         private void SetInfraredFrame(InfraredFrame frame)
         {
-            FrameDescription fd = null;
-
-            // validation
-            if (frame == null)
-            {
-                return;
-            }else
-            {
-                fd = frame.FrameDescription;
-                if(fd.Width != this.Width || fd.Height != this.Height)
-                {
-                    return;
-                }
-            }
-
             // frame to array
             ushort[] frameArray = new ushort[this.Width * this.Height]; ;
             frame.CopyFrameDataToArray(frameArray);
@@ -177,29 +190,12 @@
 
             }
 
-            int stride = fd.Width * BytesPerPixel;
+            int stride = this.Width * BytesPerPixel;
             this.pixelsHandler(stride, this.pixels);
-
         }
 
         private void SetColorFrame(ColorFrame frame)
         {
-            FrameDescription fd = null;
-
-            // validation
-            if (frame == null)
-            {
-                return;
-            }
-            else
-            {
-                fd = frame.FrameDescription;
-                if (fd.Width != this.Width || fd.Height != this.Height)
-                {
-                    return;
-                }
-            }
-
             // frame to pixel
             if (frame.RawColorImageFormat == ColorImageFormat.Bgra)
             {
@@ -209,10 +205,34 @@
                 frame.CopyConvertedFrameDataToArray(this.pixels, ColorImageFormat.Bgra);
             }
 
-            int stride = fd.Width * BytesPerPixel;
+            int stride = this.Width * BytesPerPixel;
+            this.pixelsHandler(stride, this.pixels);
+        }
+
+        private void SetDepthFrame(DepthFrame frame)
+        {
+            ushort[] frameArray = new ushort[this.Width * this.Height];
+            frame.CopyFrameDataToArray(frameArray);
+            ushort minDepth = frame.DepthMinReliableDistance;
+            ushort maxDepth = frame.DepthMaxReliableDistance;
+
+            int colorPixelIndex = 0;
+            int depthPerByte = maxDepth / 256;
+            for(int i = 0; i < frameArray.Length; i++)
+            {
+                ushort depth = frameArray[i];
+                byte intensity = (byte)(depth >= minDepth && depth <= maxDepth ? (depth / depthPerByte) : 0);
+                this.pixels[colorPixelIndex++] = intensity; //Blue
+                this.pixels[colorPixelIndex++] = intensity; //Green
+                this.pixels[colorPixelIndex++] = intensity; //Red
+                this.pixels[colorPixelIndex++] = 255; //Alpha
+            }
+
+            int stride = this.Width * BytesPerPixel;
             this.pixelsHandler(stride, this.pixels);
 
         }
+
 
     }
 }

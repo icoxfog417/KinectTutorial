@@ -93,6 +93,10 @@
         {
             this.Switch(FrameType.Color);
         }
+        private void DepthButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.Depth);
+        }
 
         private void Switch(FrameType frameType)
         {
@@ -104,9 +108,13 @@
                 case FrameType.Color:
                     this.imageSensor.Switch(this.sensor, FrameType.Color);
                     break;
+                case FrameType.Depth:
+                    this.imageSensor.Switch(this.sensor, FrameType.Depth);
+                    break;
                 default:
                     break;
             }
+
             ImageSource = new WriteableBitmap(imageSensor.Width, imageSensor.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
 
         }
