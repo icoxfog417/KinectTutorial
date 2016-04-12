@@ -51,12 +51,12 @@
             InitializeComponent();
         }
 
-        public void RenderImage(int stride, byte[] infraredPixels)
+        public void RenderImage(int stride, byte[] pixels)
         {
             this.imageSource.Lock();
 
             Int32Rect area = new Int32Rect(0, 0, this.imageSource.PixelWidth, this.imageSource.PixelHeight);
-            this.imageSource.WritePixels(area, infraredPixels, stride, 0);
+            this.imageSource.WritePixels(area, pixels, stride, 0);
 
             this.imageSource.Unlock();
 
@@ -97,24 +97,14 @@
         {
             this.Switch(FrameType.Depth);
         }
+        private void BodyMaskButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.BodyMask);
+        }
 
         private void Switch(FrameType frameType)
         {
-            switch(frameType)
-            {
-                case FrameType.Infrared:
-                    this.imageSensor.Switch(this.sensor, FrameType.Infrared);
-                    break;
-                case FrameType.Color:
-                    this.imageSensor.Switch(this.sensor, FrameType.Color);
-                    break;
-                case FrameType.Depth:
-                    this.imageSensor.Switch(this.sensor, FrameType.Depth);
-                    break;
-                default:
-                    break;
-            }
-
+            this.imageSensor.Switch(this.sensor, frameType);
             ImageSource = new WriteableBitmap(imageSensor.Width, imageSensor.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
 
         }

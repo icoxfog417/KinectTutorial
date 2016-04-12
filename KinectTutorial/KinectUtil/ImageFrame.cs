@@ -8,7 +8,8 @@
     {
         Infrared,
         Color,
-        Depth
+        Depth,
+        BodyMask
     }
 
 
@@ -55,6 +56,7 @@
         private FrameType frameType = FrameType.Color;
         private FrameDescription frameDescription = null;
         private MultiSourceFrameReader frameReader = null;
+        private CoordinateMapper coordinateMapper = null;
         public int Width { get; private set; }
         public int Height { get; private set; }
         private byte[] pixels = null;
@@ -69,7 +71,10 @@
 
             this.Switch(sensor, frameType);
             this.pixelsHandler = pixelsHandler;
-            this.frameReader = sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color|FrameSourceTypes.Infrared|FrameSourceTypes.Depth);
+            this.frameReader = sensor.OpenMultiSourceFrameReader(
+                FrameSourceTypes.Color|FrameSourceTypes.Infrared|FrameSourceTypes.Depth|FrameSourceTypes.BodyIndex
+            );
+            this.coordinateMapper = sensor.CoordinateMapper;
             this.BindHandler();
         }
 
@@ -86,6 +91,9 @@
                     break;
                 case FrameType.Depth:
                     this.frameDescription = sensor.DepthFrameSource.FrameDescription;
+                    break;
+                case FrameType.BodyMask:
+                    this.frameDescription = sensor.ColorFrameSource.FrameDescription;
                     break;
                 default:
                     break;
@@ -139,6 +147,22 @@
                         {
                             this.ValidateFrameWrap<DepthFrame>(frame, this.SetDepthFrame);
                         }
+                        break;
+                    case FrameType.BodyMask:
+                        using (DepthFrame depthFrame = multiFrame.DepthFrameReference.AcquireFrame())
+                        using (ColorFrame colorIndexFrame = multiFrame.ColorFrameReference.AcquireFrame())
+                        using (BodyIndexFrame bodyIndexFrame = multiFrame.BodyIndexFrameReference.AcquireFrame())
+                        {
+
+                            if (depthFrame == null || colorIndexFrame == null || bodyIndexFrame == null)
+                            {
+                                return;
+                            }
+
+                            this.SetBodyMask(depthFrame, colorIndexFrame, bodyIndexFrame);
+
+                        }
+ 
                         break;
                     default:
                         break;
@@ -227,6 +251,77 @@
                 this.pixels[colorPixelIndex++] = intensity; //Red
                 this.pixels[colorPixelIndex++] = 255; //Alpha
             }
+
+            int stride = this.Width * BytesPerPixel;
+            this.pixelsHandler(stride, this.pixels);
+
+        }
+
+        private void SetBodyMask(DepthFrame depthFrame, ColorFrame colorFrame, BodyIndexFrame bodyIndexFrame)
+        {
+            FrameDescription desc = colorFrame.FrameDescription;
+            FrameDescription depthDesc = depthFrame.FrameDescription;
+
+            DepthSpacePoint[] colorMappedToDepthPoints = new DepthSpacePoint[desc.Width * desc.Height];
+            int depthWidth = depthDesc.Width;
+            int depthHeight = depthDesc.Height;
+
+            using (KinectBuffer depthBuffer = depthFrame.LockImageBuffer())
+            {
+                this.coordinateMapper.MapColorFrameToDepthSpaceUsingIntPtr(
+                    depthBuffer.UnderlyingBuffer, depthBuffer.Size, colorMappedToDepthPoints
+                    );
+            };
+            // release depth frame
+            depthFrame.Dispose();
+            depthFrame = null;
+
+            colorFrame.CopyConvertedFrameDataToArray(this.pixels, ColorImageFormat.Bgra);
+
+            // release color frame
+            colorFrame.Dispose();
+            colorFrame = null;
+
+            using (KinectBuffer bodyIndexBuffer = bodyIndexFrame.LockImageBuffer())
+            {
+                unsafe
+                {
+                    byte* bodyIndexPointer = (byte*)bodyIndexBuffer.UnderlyingBuffer;
+                    int colorDepthCount = colorMappedToDepthPoints.Length;
+
+                    fixed(DepthSpacePoint* colorDepthPointer = colorMappedToDepthPoints)
+                    {
+                        for(int colorIndex = 0; colorIndex < colorDepthCount; colorIndex++)
+                        {
+                            float x = colorDepthPointer[colorIndex].X;
+                            float y = colorDepthPointer[colorIndex].Y;
+                            if(!float.IsNegativeInfinity(x) && !float.IsNegativeInfinity(y))
+                            {
+                                // depth is mapped to color sefely
+                                int depthX = (int)(x + 0.5f);
+                                int depthY = (int)(y + 0.5f);
+
+                                if (depthX >= 0 && depthX < depthWidth && depthY >= 0 && depthY < depthHeight)
+                                {
+                                    int depthIndex = (depthY * depthWidth) + depthX;
+                                    if(bodyIndexPointer[depthIndex] != 0xff)
+                                    {
+                                        continue;
+                                    }
+                                }
+                            }
+                            int pixelIndex = colorIndex* BytesPerPixel;
+                            this.pixels[pixelIndex++] = 0;
+                            this.pixels[pixelIndex++] = 0;
+                            this.pixels[pixelIndex++] = 0;
+                            this.pixels[pixelIndex] = 0;
+                        }
+                    }
+                }
+            }
+
+            bodyIndexFrame.Dispose();
+            bodyIndexFrame = null;
 
             int stride = this.Width * BytesPerPixel;
             this.pixelsHandler(stride, this.pixels);
