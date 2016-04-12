@@ -51,6 +51,8 @@
                         Click="DepthButton_Click"/>
                 <Button Content="BodyMask" Style="{StaticResource FrameSelectorButtonStyle}" 
                         Click="BodyMaskButton_Click"/>
+                <Button Content="BodyJoints" Style="{StaticResource FrameSelectorButtonStyle}" 
+                        Click="BodyJointsButton_Click"/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

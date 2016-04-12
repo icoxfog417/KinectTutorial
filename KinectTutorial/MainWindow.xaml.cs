@@ -9,7 +9,7 @@
     using KinectUtil;
     using KinectUtil.Image;
     using KinectUtil.Body;
-
+    using System.Windows.Controls;
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -19,11 +19,12 @@
         private KinectSensor sensor = null;
         private FrameType defaultType = FrameType.Infrared;
         private ImageSensor imageSensor = null;
-        private BodySensor bodySensor = null;
+        private BodiesSensor bodiesSensor = null;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         private WriteableBitmap imageSource = null;
+        private Canvas drawingCanvas = null;
         public ImageSource ImageSource
         {
             get {
@@ -54,12 +55,12 @@
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            this.imageSensor.BindHandler();
+           // this.imageSensor.BindHandler();
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
-            this.imageSensor.Dispose();
+            this.Reset();
             if (this.sensor != null)
             {
                 this.sensor.Close();
@@ -76,6 +77,13 @@
 
             this.imageSource.Unlock();
 
+        }
+
+        public void DrawBody(BodyFrame bodyFrame)
+        {
+            Body[] bodies = new Body[this.sensor.BodyFrameSource.BodyCount];
+            bodyFrame.GetAndRefreshBodyData(bodies);
+            this.bodiesSensor.UpdateBodiesAndEdges(bodies);
         }
 
         private void OnPropertyChanged(string name)
@@ -102,15 +110,19 @@
         {
             this.Switch(FrameType.BodyMask);
         }
+        private void BodyJointsButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.BodyJoints);
+        }
 
-        private void Switch(FrameType frameType)
+        private void Reset()
         {
             // initialize view and sensors
-            if(ImageCanvas != null)
+            if (ImageCanvas != null)
             {
                 ImageCanvas.Visibility = Visibility.Collapsed;
             }
-            if(BodyJointCanvas != null)
+            if (BodyJointCanvas != null)
             {
                 BodyJointCanvas.Visibility = Visibility.Collapsed;
             }
@@ -119,11 +131,16 @@
                 this.imageSensor.Dispose();
                 this.imageSensor = null;
             }
-            if (this.bodySensor != null)
+            if (this.bodiesSensor != null)
             {
-                this.imageSensor.Dispose();
-                this.imageSensor = null;
+                this.bodiesSensor.Dispose();
+                this.bodiesSensor = null;
             }
+        }
+
+        private void Switch(FrameType frameType)
+        {
+            this.Reset();
 
             if (frameType == FrameType.Infrared || 
                 frameType == FrameType.Color || 
@@ -139,11 +156,19 @@
             }
             else if(frameType == FrameType.BodyJoints)
             {
-
                 if (BodyJointCanvas != null)
                 {
                     BodyJointCanvas.Visibility = Visibility.Visible;
+                    BodyJointCanvas.Children.Clear();
                 }
+
+                this.drawingCanvas = new Canvas();
+                this.drawingCanvas.Clip = new RectangleGeometry(new Rect(0.0, 0.0, this.BodyJointCanvas.Width, this.BodyJointCanvas.Height));
+                this.drawingCanvas.Width = this.BodyJointCanvas.Width;
+                this.drawingCanvas.Height = this.BodyJointCanvas.Height;
+                this.BodyJointCanvas.Children.Add(this.drawingCanvas);
+
+                this.bodiesSensor = new BodiesSensor(this.sensor, this.drawingCanvas, this.sensor.BodyFrameSource.BodyCount, this.DrawBody);
 
             }
         }

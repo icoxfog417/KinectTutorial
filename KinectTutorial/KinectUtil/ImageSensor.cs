@@ -113,7 +113,6 @@
             }
         }
 
-
         private void OnFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e)
         {
             MultiSourceFrame multiFrame = e.FrameReference.AcquireFrame();
