@@ -83,7 +83,9 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="KinectUtil\ImageFrame.cs" />
+    <Compile Include="KinectUtil\BodySensor.cs" />
+    <Compile Include="KinectUtil\FrameType.cs" />
+    <Compile Include="KinectUtil\ImageSensor.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

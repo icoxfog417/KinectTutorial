@@ -6,8 +6,9 @@
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
+    using KinectUtil;
     using KinectUtil.Image;
-    using System;
+    using KinectUtil.Body;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -18,6 +19,7 @@
         private KinectSensor sensor = null;
         private FrameType defaultType = FrameType.Infrared;
         private ImageSensor imageSensor = null;
+        private BodySensor bodySensor = null;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -41,7 +43,6 @@
         public MainWindow()
         {
             this.sensor = KinectSensor.GetDefault();
-            imageSensor = new ImageSensor(this.sensor, this.RenderImage, this.defaultType);
             this.Switch(this.defaultType);
 
             // bind with windows
@@ -49,17 +50,6 @@
 
             this.sensor.Open();
             InitializeComponent();
-        }
-
-        public void RenderImage(int stride, byte[] pixels)
-        {
-            this.imageSource.Lock();
-
-            Int32Rect area = new Int32Rect(0, 0, this.imageSource.PixelWidth, this.imageSource.PixelHeight);
-            this.imageSource.WritePixels(area, pixels, stride, 0);
-
-            this.imageSource.Unlock();
-
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -75,6 +65,17 @@
                 this.sensor.Close();
                 this.sensor = null;
             }
+        }
+
+        public void RenderImage(int stride, byte[] pixels)
+        {
+            this.imageSource.Lock();
+
+            Int32Rect area = new Int32Rect(0, 0, this.imageSource.PixelWidth, this.imageSource.PixelHeight);
+            this.imageSource.WritePixels(area, pixels, stride, 0);
+
+            this.imageSource.Unlock();
+
         }
 
         private void OnPropertyChanged(string name)
@@ -104,9 +105,47 @@
 
         private void Switch(FrameType frameType)
         {
-            this.imageSensor.Switch(this.sensor, frameType);
-            ImageSource = new WriteableBitmap(imageSensor.Width, imageSensor.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
+            // initialize view and sensors
+            if(ImageCanvas != null)
+            {
+                ImageCanvas.Visibility = Visibility.Collapsed;
+            }
+            if(BodyJointCanvas != null)
+            {
+                BodyJointCanvas.Visibility = Visibility.Collapsed;
+            }
+            if (this.imageSensor != null)
+            {
+                this.imageSensor.Dispose();
+                this.imageSensor = null;
+            }
+            if (this.bodySensor != null)
+            {
+                this.imageSensor.Dispose();
+                this.imageSensor = null;
+            }
 
+            if (frameType == FrameType.Infrared || 
+                frameType == FrameType.Color || 
+                frameType == FrameType.Depth || 
+                frameType == FrameType.BodyMask)
+            {
+                this.imageSensor = new ImageSensor(this.sensor, this.RenderImage, frameType);
+                if (ImageCanvas != null)
+                {
+                    ImageCanvas.Visibility = Visibility.Visible;
+                }
+                ImageSource = new WriteableBitmap(imageSensor.Width, imageSensor.Height, 96.0, 96.0, PixelFormats.Bgra32, null);
+            }
+            else if(frameType == FrameType.BodyJoints)
+            {
+
+                if (BodyJointCanvas != null)
+                {
+                    BodyJointCanvas.Visibility = Visibility.Visible;
+                }
+
+            }
         }
 
 

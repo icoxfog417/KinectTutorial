@@ -3,15 +3,7 @@
 {
     using System;
     using Microsoft.Kinect;
-
-    public enum FrameType
-    {
-        Infrared,
-        Color,
-        Depth,
-        BodyMask
-    }
-
+    using KinectTutorial.KinectUtil;
 
     /// <summary>
     /// Utility Class to manage Kinect Sensor

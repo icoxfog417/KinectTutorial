@@ -34,7 +34,10 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Viewbox Grid.Row="1" HorizontalAlignment="Center">
-            <Image Source="{Binding ImageSource}" Stretch="UniformToFill" />
+            <Image x:Name="ImageCanvas" Source="{Binding ImageSource}" Stretch="UniformToFill" />
+        </Viewbox>
+        <Viewbox Grid.Row="1" HorizontalAlignment="Center">
+            <Grid x:Name="BodyJointCanvas" Background="Transparent" Width="512" Height="414"/>
         </Viewbox>
         <ScrollViewer Grid.Row="2" 
             ScrollViewer.HorizontalScrollBarVisibility="Auto" 
