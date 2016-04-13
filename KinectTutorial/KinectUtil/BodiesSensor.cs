@@ -512,6 +512,13 @@
 
         public void Dispose()
         {
+            if(frameReader != null)
+            {
+                frameReader.Dispose();
+                frameReader = null;
+            }
+            this.drawingCanvas.Children.Clear();
+            this.drawingCanvas = null;
         }
     }
 }

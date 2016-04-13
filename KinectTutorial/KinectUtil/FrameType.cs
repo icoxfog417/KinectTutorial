@@ -12,7 +12,8 @@ namespace KinectTutorial.KinectUtil
         Color,
         Depth,
         BodyMask,
-        BodyJoints
+        BodyJoints,
+        FaceOnColor
     }
     
 

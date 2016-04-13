@@ -6,10 +6,13 @@
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
+    using Microsoft.Kinect.Face;
     using KinectUtil;
     using KinectUtil.Image;
     using KinectUtil.Body;
+    using KinectUtil.Face;
     using System.Windows.Controls;
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -20,11 +23,12 @@
         private FrameType defaultType = FrameType.Infrared;
         private ImageSensor imageSensor = null;
         private BodiesSensor bodiesSensor = null;
+        private FacePointsSensor facePointsSensor = null;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        private WriteableBitmap imageSource = null;
         private Canvas drawingCanvas = null;
+        private WriteableBitmap imageSource = null;
         public ImageSource ImageSource
         {
             get {
@@ -38,7 +42,15 @@
                     this.OnPropertyChanged("ImageSource");
                 }
             }
+        }
 
+        private ImageSource facePointsSource;
+        public ImageSource FacePointsSource
+        {
+            get
+            {
+                return this.facePointsSource;
+            }
         }
 
         public MainWindow()
@@ -86,6 +98,11 @@
             this.bodiesSensor.UpdateBodiesAndEdges(bodies);
         }
 
+        public void DrawFace(FaceFrame faceFrame)
+        {
+
+        }
+
         private void OnPropertyChanged(string name)
         {
             if(this.PropertyChanged != null)
@@ -114,6 +131,10 @@
         {
             this.Switch(FrameType.BodyJoints);
         }
+        private void FacePointsButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Switch(FrameType.FaceOnColor);
+        }
 
         private void Reset()
         {
@@ -126,6 +147,10 @@
             {
                 BodyJointCanvas.Visibility = Visibility.Collapsed;
             }
+            if (FacePointsCanvas != null)
+            {
+                FacePointsCanvas.Visibility = Visibility.Collapsed;
+            }
             if (this.imageSensor != null)
             {
                 this.imageSensor.Dispose();
@@ -135,6 +160,11 @@
             {
                 this.bodiesSensor.Dispose();
                 this.bodiesSensor = null;
+            }
+            if(this.facePointsSensor != null)
+            {
+                this.facePointsSensor.Dispose();
+                this.facePointsSensor = null;
             }
         }
 
@@ -169,8 +199,23 @@
                 this.BodyJointCanvas.Children.Add(this.drawingCanvas);
 
                 this.bodiesSensor = new BodiesSensor(this.sensor, this.drawingCanvas, this.sensor.BodyFrameSource.BodyCount, this.DrawBody);
+            }
+            else if(frameType == FrameType.FaceOnColor)
+            {
+                if(FacePointsCanvas != null)
+                {
+                    ImageCanvas.Visibility = Visibility.Visible;
+                    FacePointsCanvas.Visibility = Visibility.Visible;
+                }
+
+                this.facePointsSensor = new FacePointsSensor(this.sensor, () => {
+                    this.OnPropertyChanged("FacePointsSource");
+                });
+                ImageSource = this.facePointsSensor.Bitmap;
+                this.facePointsSource = this.facePointsSensor.FacePointsSource;
 
             }
+
         }
 
 
